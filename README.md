@@ -1,47 +1,32 @@
-# rl_aliengo_ssrl
+# rl_robots
 
 After cloning the repository:
 ```bash
 git submodule update --init --recursive
-pip install -e submodules/free-dog-sdk/
 ```
 
 # Build docker
-Inside dir ```rl_go1/docker``` run
+Inside dir ```rl_robots/docker``` run
 ```bash
-docker build -t ros-jax-gpu .
+./build_docker.sh
 ```
 # Start Docker
-Inside dir: ```rl_go1```
+Inside dir: ```docker```
 
 ```bash
-xhost si:localuser:root
-docker run --rm -it --ipc=host --gpus all --net=host -v .:/workspace --volume=$HOME/.Xauthority:/root/.Xauthority:rw -e NVIDIA_DRIVER_CAPABILITIES=all -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --privileged ros-jax-gpu bash
+./run_container.sh
 ```
 
 # After docker started init env
 ```bash
 source /ssrl_entry.sh
 ```
-
-# Build ros workspace
-```bash
-cd /workspace/ssrl_ws
-catkin_make
-```
-
-# Use ros env
-```bash
-source devel/setup.sh
-```
+It automatically build all packages, create ROS env, build and source it.
 
 # SSRL Start to collect data
 In separate terminals:
 ```bash
 roscore
-```
-```bash
-roslaunch ssrl_ros_go1 quadruped_comm.launch
 ```
 ```bash
 roslaunch ssrl_ros_go1 quadruped_comm.launch
