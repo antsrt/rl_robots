@@ -1,0 +1,98 @@
+{
+    "os": "Linux-6.8.0-52-generic-x86_64-with-glibc2.29",
+    "python": "3.8.10",
+    "heartbeatAt": "2025-03-13T10:58:03.681113",
+    "startedAt": "2025-03-13T10:58:02.243980",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "scripts/train.py",
+    "host": "hellmachine",
+    "username": "root",
+    "executable": "/usr/bin/python3",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 2956.3099166666666,
+        "min": 400.0,
+        "max": 4603.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 4387.595,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4387.981,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 2421.435,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4388.356,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4398.748,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 2212.852,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4392.004,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4376.915,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4394.594,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 4420.419,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 3508.012,
+            "min": 400.0,
+            "max": 4603.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 4603.0
+        }
+    ],
+    "disk": {
+        "total": 468.3817367553711,
+        "used": 75.05497360229492
+    },
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+            "memory_total": 8585740288
+        }
+    ],
+    "memory": {
+        "total": 14.829536437988281
+    }
+}
