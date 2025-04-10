@@ -1,11 +1,13 @@
 [submodule "submodules/ssrl"]
-	path = submodules/ssrl
-	url = https://github.com/antsrt/ssrl.git
-[submodule "ssrl_ws/src/unitree_ros_to_real"]
-	path = ssrl_ws/src/unitree_ros_to_real
-	url = https://github.com/antsrt/unitree_ros_to_real.git
-	branch = Aliengo
-[submodule "ssrl_ws/src/unitree_ros_to_real/unitree_legged_sdk"]
-	path = ssrl_ws/src/unitree_ros_to_real/unitree_legged_sdk
-	url = https://github.com/antsrt/unitree_legged_sdk.git
-	branch = ALiengo
+    path = submodules/ssrl
+    url = https://github.com/antsrt/ssrl.git
+
+[submodule "submodules/unitree_ros_to_real"]
+    path = submodules/unitree_ros_to_real
+    url = https://github.com/antsrt/unitree_ros_to_real.git
+    branch = Aliengo
+
+[submodule "submodules/unitree_legged_sdk"]
+    path = submodules/unitree_ros_to_real/unitree_legged_sdk
+    url = https://github.com/antsrt/unitree_legged_sdk.git
+    branch = ALiengo
