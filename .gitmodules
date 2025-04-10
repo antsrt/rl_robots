@@ -1,6 +1,3 @@
-[submodule "submodules/ssrl"]
-	path = submodules/ssrl
-	url = https://github.com/antsrt/ssrl.git
 [submodule "submodules/unitree_ros_to_real"]
 	path = submodules/unitree_ros_to_real
 	url = https://github.com/antsrt/unitree_ros_to_real.git
@@ -9,3 +6,6 @@
 	path = submodules/unitree_legged_sdk
 	url = https://github.com/antsrt/unitree_legged_sdk.git
 	branch = Aliengo
+[submodule "submodules/ssrl"]
+	path = submodules/ssrl
+	url = git@github.com:antsrt/ssrl_aliengo_mod.git
