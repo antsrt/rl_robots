@@ -8,4 +8,4 @@
 	branch = Aliengo
 [submodule "submodules/ssrl"]
 	path = submodules/ssrl
-	url = git@github.com:antsrt/ssrl_aliengo_mod.git
+	url = https://github.com/antsrt/ssrl.git
