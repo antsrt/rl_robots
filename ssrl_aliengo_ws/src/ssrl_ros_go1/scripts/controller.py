@@ -19,5 +19,5 @@ def main(cfg: DictConfig):
 if __name__ == '__main__':
     GlobalHydra.instance().clear()
     initialize(config_path="configs")
-    cfg = compose("go1.yaml")
+    cfg = compose("aliengo.yaml")
     main(cfg)

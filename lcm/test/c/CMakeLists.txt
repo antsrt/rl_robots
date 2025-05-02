@@ -1,7 +1,7 @@
-set(test_c_libs lcm-test-types-c lcm gtest gtest_main)
+set(test_c_libs lcm-test-types-c-static lcm-static gtest gtest_main)
 
 add_executable(test-c-server server.c common.c)
-target_link_libraries(test-c-server lcm-test-types-c lcm)
+target_link_libraries(test-c-server lcm-test-types-c-static lcm-static)
 
 add_executable(test-c-client client.cpp common.c)
 target_link_libraries(test-c-client ${test_c_libs})

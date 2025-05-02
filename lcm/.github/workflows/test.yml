@@ -10,7 +10,8 @@ jobs:
   ubuntu:
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-24.04, ubuntu-22.04]
+        build_type: [Debug, Release]
 
     runs-on: ${{ matrix.os }}
 
@@ -19,10 +20,11 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        sudo apt install liblua5.3-dev lua5.3
+        sudo apt update
+        sudo apt install liblua5.3-dev lua5.3 libjchart2d-java libglib2.0-dev
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build ${{env.CMAKE_FLAGS}}
+      run: cmake -B ${{github.workspace}}/build ${{env.CMAKE_FLAGS}} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build
@@ -54,7 +56,7 @@ jobs:
         LD_LIBRARY_PATH=/usr/local/lib/ build/lcm_log_writer build/example.log
 
   fedora:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v3
@@ -96,7 +98,7 @@ jobs:
   macos:
     strategy:
       matrix:
-        os: [macos-11, macos-12]
+        os: [macos-13, macos-14]
 
     runs-on: ${{ matrix.os }}
 
@@ -139,7 +141,7 @@ jobs:
         cmake --build build
         build/lcm_log_writer build/example.log
 
-  windows:
+  windows_msys2:
     strategy:
       matrix:
         os: [windows-2019, windows-2022]
@@ -164,34 +166,55 @@ jobs:
           cmake:p
           glib2:p
           gtest:p
-  
+          lua:p
+
     - name: Configure CMake
-      run: cmake -B build -DPython_FIND_REGISTRY=NEVER
+      run: cmake -B build ${{env.CMAKE_FLAGS}}
 
     - name: Build
       run: cmake --build build
 
-    # Needs to be installed for the tests to be able to find DLLs.
-    - name: Install
-      run: cmake --install build --prefix /mingw64/
+    - name: Test
+      run: ctest --output-on-failure
+
+
+  windows_msvc:
+    runs-on: windows-2022
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{github.workspace}}\vcpkg-cache
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}\vcpkg-cache
+        key: ${{ hashFiles('vcpkg.json') }}-vcpkg-cache
+        restore-keys: vcpkg-cache
+
+    - name: Create cache directory
+      run: mkdir ${{env.VCPKG_DEFAULT_BINARY_CACHE}} -Force
+
+    # Builds dependencies using vcpkg, leveraging cache
+    - name: Run CMake
+      run: cmake --preset=vcpkg-vs-github
+
+    - name: Build
+      run: cmake --build build --config Release
 
     - name: Test
-      run: |
-        cd build
-        # Copy DLLs that don't get installed into the directories of the tests that need them.
-        cp test/types/liblcm-test-types.dll test/c/
-        ctest --output-on-failure
+      run: ctest --output-on-failure --test-dir build -C Release
+
 
   docs:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Install Dependencies
         run: |
-          sudo apt install doxygen liblua5.4-dev lua5.4
-          pip install sphinx-rtd-theme Sphinx myst-parser
+          sudo apt update
+          sudo apt install doxygen liblua5.4-dev lua5.4 python3-sphinx-rtd-theme python3-sphinx python3-myst-parser libglib2.0-dev
 
       - name: Build Docs
         run: |
@@ -200,21 +223,23 @@ jobs:
           make doc
 
       - name: Archive Docs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: archived-docs
           path: build/docs/_build
 
   formatting:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Install Dependencies
         run: |
-          sudo apt install clang-format-12
+          sudo apt update
+          sudo apt install clang-format-15
 
       - name: Check formatting
         run: |
-          ./format_code.sh --check
+          ./format_code.sh
+          git diff --exit-code

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from brax.envs.aliengo_go_fast import Go1GoFast
-from brax.robots.go1 import networks as go1_networks
+from brax.envs.aliengo_go_fast import AliengoGoFast
+from brax.robots.aliengo import networks as aliengo_networks
 from brax.training.acme import running_statistics
 from brax.training.agents.ssrl import train as ssrl
 from brax.training.agents.ssrl import base as ssrl_base
@@ -41,7 +41,7 @@ class WandbState:
     steps: int
 
 
-@hydra.main(config_path="configs", config_name="go1")
+@hydra.main(config_path="configs", config_name="aliengo")
 def train(cfg: DictConfig):
     from jax import config
     config.update("jax_enable_x64", True)
@@ -214,7 +214,7 @@ def init_training(cfg: DictConfig) -> Tuple[ssrl_base.MbpoState, RlwamEnv,
 
     dynamics_fn = env.make_ssrl_dynamics_fn(cfg.ssrl_dynamics_fn)
     (sac_network_factory,
-        model_network_factory) = go1_networks.ssrl_network_factories(cfg)
+        model_network_factory) = aliengo_networks.ssrl_network_factories(cfg)
 
     if cfg.reset_critic and sac_ts is not None:
         q_optimizer = optax.adam(learning_rate=cfg.ssrl.sac_learning_rate)
@@ -317,14 +317,14 @@ def init_training(cfg: DictConfig) -> Tuple[ssrl_base.MbpoState, RlwamEnv,
 
 
 def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
-                 env: Go1GoFast, rollout_num: int, rollout_path: Path):
+                 env: AliengoGoFast, rollout_num: int, rollout_path: Path):
     obs_size = env.observation_size
     hist_len = cfg.common.obs_history_length
     act_repeat = cfg.common.action_repeat
     act_size = env.action_size
     q_size = env.sys.act_size()
     u_size = env.controls_size
-    is_straight_task = cfg.env == 'Go1GoFast'
+    is_straight_task = cfg.env == 'AliengoGoFast'
 
     bag_paths = []
     pattern = re.compile(r'subrollout_\d+\.bag')

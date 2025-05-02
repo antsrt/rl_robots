@@ -1,4 +1,4 @@
-FROM fedora:37
+FROM fedora:41
 
 # cmake3: To build LCM
 # clang: For compiling code with Clang
@@ -10,9 +10,7 @@ RUN dnf install -y \
     clang \
     glib2-devel \
     java-17-openjdk-devel \
-    python3-devel
+    python3-devel \
+    meson
 
 WORKDIR /work
-
-# Necessary to encode certain characters when compiling the Java code.
-ENV LANG=C.UTF-8

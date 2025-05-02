@@ -21,7 +21,12 @@ elseif (Java_VERSION VERSION_LESS 1.9)
   endif()
 endif()
 
-add_subdirectory(jchart2d-code)
+# Use system version of jchart2d if available
+find_jar(jchart2d_JAR jchart2d)
+if(NOT jchart2d_JAR)
+  add_subdirectory(jchart2d-code)
+  set(jchart2d_JAR jchart2d)
+endif()
 
 set(lcm_java_sources
   lcm/util/JImage.java
@@ -59,29 +64,52 @@ set(lcm_java_sources
 )
 
 add_jar(lcm-java
-  INCLUDE_JARS jchart2d
+  INCLUDE_JARS ${jchart2d_JAR}
   SOURCES ${lcm_java_sources}
   OUTPUT_NAME lcm
 )
 
 install_jar(lcm-java DESTINATION share/java)
 
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/lcm-spy.sh.in
-  ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy
-  @ONLY
-)
+if(WIN32)
 
-lcm_copy_file_target(lcm-logplayer-gui-alias
-  ${CMAKE_CURRENT_SOURCE_DIR}/lcm-logplayer-gui.sh
-  ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui
-)
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/lcm-spy.bat.in
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy.bat
+    @ONLY
+  )
 
-install(PROGRAMS
-  ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui
-  ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy
-  DESTINATION bin
-)
+  lcm_copy_file_target(lcm-logplayer-gui-alias
+    ${CMAKE_CURRENT_SOURCE_DIR}/lcm-logplayer-gui.bat
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui.bat
+  )
+
+  install(PROGRAMS
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui.bat
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy.bat
+    DESTINATION bin
+  )
+
+else()
+
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/lcm-spy.sh.in
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy
+    @ONLY
+  )
+
+  lcm_copy_file_target(lcm-logplayer-gui-alias
+    ${CMAKE_CURRENT_SOURCE_DIR}/lcm-logplayer-gui.sh
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui
+  )
+
+  install(PROGRAMS
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-logplayer-gui
+    ${CMAKE_CURRENT_BINARY_DIR}/lcm-spy
+    DESTINATION bin
+  )
+
+endif()
 
 install(FILES
   lcm-logplayer-gui.1

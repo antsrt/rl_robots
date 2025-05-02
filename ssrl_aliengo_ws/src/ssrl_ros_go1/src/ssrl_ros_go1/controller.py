@@ -6,8 +6,8 @@ from ssrl_ros_go1_msgs.msg import QuadrupedState
 
 from ssrl_ros_go1 import env_dict
 from brax.envs.aliengo_go_fast import ControlCommand as Cmd
-from brax.robots.aliengo.utils import Go1Utils
-from brax.robots.aliengo import networks as go1_networks
+from brax.robots.aliengo.utils import AliengoUtils
+from brax.robots.aliengo import networks as aliengo_networks
 from brax.math import quat_to_eulerzyx, eulerzyx_to_quat
 
 from omegaconf import DictConfig
@@ -39,7 +39,7 @@ class Controller:
         self.Kd_stand_start = jp.tile(jp.array([5, 5, 7]), 4) * mult
         self.Kp_stand_end = jp.tile(jp.array([70, 70, 80]), 4)
         self.Kd_stand_end = jp.tile(jp.array([5, 5, 7]), 4)
-        self.p_stand_end = Go1Utils.standing_foot_positions()
+        self.p_stand_end = AliengoUtils.standing_foot_positions()
         self.p_stand_end += jp.tile(jp.array([0, 0, 0.05]), 4)
         self.p_stand_start = self.p_stand_end + jp.tile(jp.array([0, 0, 0.22]), 4)
         self.standing_up_time = 5.0
@@ -71,8 +71,8 @@ class Controller:
         self.standing_up_count = 0
         self.dt = self.env.dt
         self.start_yaw = 0.0
-        self.is_straight_task = cfg.env == 'Go1GoFast'
-        self.ik = jax.jit(Go1Utils.inverse_kinematics_all_legs)
+        self.is_straight_task = cfg.env == 'AliengoGoFast'
+        self.ik = jax.jit(AliengoUtils.inverse_kinematics_all_legs)
         self.last_cmd = Cmd(jp.zeros(12,), jp.zeros(12,),
                             jp.zeros(12,), jp.zeros(12,),
                             jp.array([True] * 4), jp.array([0.0] * 4),
@@ -94,7 +94,7 @@ class Controller:
                     self.data_path / cfg.run_name)]) + 1
             sac_ts_path = (self.data_path / cfg.run_name
                            / f"{self.rollout_count - 1:02d}" / "sac_ts.pkl")
-            params, make_policy, _ = go1_networks.make_sac_networks(
+            params, make_policy, _ = aliengo_networks.make_sac_networks(
                 cfg, self.env, saved_policies_dir=None,
                 sac_ts_path=sac_ts_path)
             self.max_rollout_steps = cfg.ssrl.env_steps_per_training_step
@@ -103,7 +103,7 @@ class Controller:
             if self.save_data:
                 os.makedirs(self.data_path / cfg.run_name)
             self.rollout_count = 0
-            params, make_policy, _ = go1_networks.make_sac_networks(
+            params, make_policy, _ = aliengo_networks.make_sac_networks(
                 cfg, self.env, saved_policies_dir=None, sac_ts_path=None,
                 seed=cfg.ssrl.seed)
             self.max_rollout_steps = cfg.ssrl.init_exploration_steps
@@ -197,8 +197,8 @@ class Controller:
                 p_des = self.interpolate(self.p_stand_start, self.p_stand_end, x)
                 q_des = self.ik(p_des)
                 q_des = jp.clip(q_des,
-                                jp.tile(Go1Utils.LOWER_JOINT_LIMITS, 4),
-                                jp.tile(Go1Utils.UPPER_JOINT_LIMITS, 4))
+                                jp.tile(AliengoUtils.LOWER_JOINT_LIMITS, 4),
+                                jp.tile(AliengoUtils.UPPER_JOINT_LIMITS, 4))
                 qd_des = jp.zeros((12,))
                 contact = jp.array([True] * 4)
                 leg_phases = jp.array([0.0] * 4)
@@ -213,8 +213,8 @@ class Controller:
                 p_des = self.p_stand_end
                 q_des = self.ik(p_des)
                 q_des = jp.clip(q_des,
-                                jp.tile(Go1Utils.LOWER_JOINT_LIMITS, 4),
-                                jp.tile(Go1Utils.UPPER_JOINT_LIMITS, 4))
+                                jp.tile(AliengoUtils.LOWER_JOINT_LIMITS, 4),
+                                jp.tile(AliengoUtils.UPPER_JOINT_LIMITS, 4))
                 qd_des = jp.zeros((12,))
                 Kp = self.Kp_stand_end
                 Kd = self.Kd_stand_end

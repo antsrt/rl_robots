@@ -4,7 +4,7 @@ import wandb
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import numpy as jp
-from brax.robots.go1.utils import Go1Utils
+from brax.robots.aliengo.utils import AliengoUtils
 import jax
 
 
@@ -19,7 +19,7 @@ def plot_rollout(cfg, env, ts,
 
         config_dict = OmegaConf.to_container(cfg, resolve=True,
                                                 throw_on_missing=True)
-        wandb.init(project='go1_hardware',
+        wandb.init(project='aliengo_hardware',
                     entity=cfg.wandb.entity,
                     name=run_name,
                     config=config_dict)
@@ -63,7 +63,7 @@ def _generate_wandb_plot(ts, data, name):
         plt.clf()
 
 def _plot_foot_positions(env, ts, obses, q_deses):
-    fk = jax.vmap(Go1Utils.forward_kinematics_all_legs)
+    fk = jax.vmap(AliengoUtils.forward_kinematics_all_legs)
     
     qs = jp.array(obses)[:, env._q_idxs]
     ps = np.array(fk(qs))

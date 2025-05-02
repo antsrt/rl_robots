@@ -5,21 +5,11 @@
 3. Verify that supported platforms and version numbers are correct in the README
 4. Bump the version number in:
   a. lcm/lcm_version.h
-  b. lcm-lua/rock/lcm-<version>-0.rockspec
+  b. lcm-lua/rock/lcm-<version>-0.rockspec (both filename and contents of file)
+  c. pyproject.toml
 5. Commit the above changes and create the vX.Y.Z git tag.
   $ git commit -a -m "Release X.Y.Z"
   $ git tag vX.Y.Z
-6. Create the release artifact
-  $ git archive --format zip -o lcm-X.Y.Z.zip --prefix lcm-X.Y.Z/ vX.Y.Z
-7. Take the resulting artifact, extract it, build it, install it, make sure
-  the basic executables run
-  $ unzip lcm-X.Y.Z.zip
-  $ cd lcm-X.Y.Z
-  $ mkdir build
-  $ cd build
-  $ cmake ..
-  $ make
-  $ make install
 
 # Test
 
@@ -42,6 +32,10 @@
   b. Name the release title "vX.Y.Z"
   c. Add release notes from the NEWS file
 
-# Notify the mailing list
+# PyPi Release
 
-1. Send e-mail to lcm-users@googlegroups.com
+1. Download all wheels generated from CI job from the latest push
+2. Test a macOS wheel and a Linux wheel
+    - Run `test/python/test_python_module.py`
+    - Run `lcm-logplayer-gui`
+3. Upload all wheels to PyPi

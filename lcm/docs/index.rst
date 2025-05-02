@@ -9,6 +9,7 @@ in a variety of programming languages.
 Quick links
 ===========
 
+* :ref:`Installing LCM`
 * `Downloads <https://github.com/lcm-proj/lcm/releases>`_
 * :ref:`Build Instructions`
 * :ref:`Tutorial and examples`
@@ -43,7 +44,7 @@ Supported platforms / languages
   * Java
   * Lua
   * MATLAB
-  * Python
+  * Python (3.7 and later)
 
 Forks
 ========
@@ -84,6 +85,7 @@ Publications and application notes
     - `Technical Report MIT-CSAIL-TR-2009-041, Massachusetts Institute of Technology, 2009`
  - :ref:`UDP Multicast Setup`
  - :ref:`Java application notes`
+ - :ref:`Python application notes`
 
 Who uses LCM?
 =============
@@ -115,8 +117,10 @@ sending a message to the `mailing list <http://groups.google.com/group/lcm-users
    :caption: Contents
    :glob:
 
+   content/install-instructions.md
    content/build-instructions.md
    content/java-notes.md
+   content/python-notes.md
    content/lcm-type-ref.md
    content/log-file-format.md
    content/multicast-setup.md
@@ -150,7 +154,6 @@ sending a message to the `mailing list <http://groups.google.com/group/lcm-users
    javadocs/index
    content/lua-api.md
    python/index.rst
-
 
 Indices and tables
 ==================

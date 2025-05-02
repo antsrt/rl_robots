@@ -159,7 +159,7 @@ static void _destroy_recv_parts(lcm_udpm_t *lcm)
     }
 }
 
-void lcm_udpm_destroy(lcm_udpm_t *lcm)
+static void lcm_udpm_destroy(lcm_udpm_t *lcm)
 {
     dbg(DBG_LCM, "closing lcm context\n");
     _destroy_recv_parts(lcm);
@@ -297,7 +297,7 @@ static int _recv_message_fragment(lcm_udpm_t *lcm, lcm_buf_t *lcmb, uint32_t sz)
                 "insufficient buffer space is very high.\n"
                 "\n"
                 "For more information, visit:\n"
-                "   http://lcm-proj.github.io/lcm/multicast_setup.html\n\n");
+                "   https://lcm-proj.github.io/lcm/content/multicast-setup.html\n\n");
         lcm->warned_about_small_kernel_buf = 1;
     }
 #endif
@@ -969,7 +969,7 @@ static int _setup_recv_parts(lcm_udpm_t *lcm)
                 "LCM UDP receive buffer size (%d) \n"
                 "       is smaller than reqested (%d). "
                 "For more info:\n"
-                "       http://lcm-proj.github.io/lcm/multicast_setup.html\n",
+                "       https://lcm-proj.github.io/lcm/content/multicast-setup.html\n",
                 lcm->kernel_rbuf_sz, lcm->params.recv_buf_size);
         }
     }
@@ -1053,7 +1053,7 @@ setup_recv_thread_fail:
     return -1;
 }
 
-lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashTable *args)
+static lcm_provider_t *lcm_udpm_create(lcm_t *parent, const char *network, const GHashTable *args)
 {
     udpm_params_t params;
     memset(&params, 0, sizeof(udpm_params_t));

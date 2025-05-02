@@ -8,14 +8,15 @@ variety of programming languages.
 
 # Roadmap
 
-The LCM project is active again. The current near-term plan is to:
-
-* Clear deprecation warnings from build for all language targets
-* Flush backlog of PRs
-* Cut a new release
+The LCM project is active again. The current long-term plan is to focus on stability and maintenance
+patches to fix longstanding issues. Longer term we're open to evolution of LCM to have additional
+features (as long as backwards compatibility is enforced). We're very open to community
+feedback and involvement on new features.
 
 # Quick Links
 
+* [Installing LCM](https://lcm-proj.github.io/lcm/content/install-instructions.html)
+* [Building LCM from source](https://lcm-proj.github.io/lcm/content/build-instructions.html)
 * [LCM downloads](https://github.com/lcm-proj/lcm/releases)
 * [Website and documentation](https://lcm-proj.github.io/lcm)
 
@@ -33,9 +34,9 @@ The LCM project is active again. The current near-term plan is to:
 
 * Platforms:
   * GNU/Linux
-      * Ubuntu (20.04 and 22.04)
-      * Fedora (37)
-  * macOS (11 and 12)
+      * Ubuntu (22.04 and 24.04)
+      * Fedora (41)
+  * macOS (13 and 14)
   * Windows (2019 and 2022) via MSYS2
 * Languages
   * C
@@ -43,7 +44,7 @@ The LCM project is active again. The current near-term plan is to:
   * Java
   * Lua
   * MATLAB
-  * Python
+  * Python (3.7 and later)
 
 ## Unmaintained languages
 

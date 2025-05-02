@@ -16,4 +16,4 @@ docker run --rm \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     --privileged \
     ssrl-ros-gpu \
-    bash -c "cd /workspace/ssrl_ws && source devel/setup.bash && bash"
+

@@ -25,7 +25,6 @@ public class LogPlayer extends JComponent
     static
     {
         System.setProperty("java.net.preferIPv4Stack", "true");
-        System.out.println("LC: Disabling IPV6 support");
     }
 
     Log log;
@@ -1120,7 +1119,7 @@ public class LogPlayer extends JComponent
             }
 
             {
-                String spacer = "  •  ";
+                String spacer = "  \u2022  ";
                 String filename = p.logName.getText();
 
                 String title = "LogPlayer";

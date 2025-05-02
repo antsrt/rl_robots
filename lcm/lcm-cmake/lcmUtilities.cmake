@@ -27,12 +27,7 @@
 #   lcm_install_python([DESTINATION <PATH>]
 #                      <FILE> [<FILE>...])
 
-if(WIN32)
-  # Need 'cmake -E env'
-  cmake_minimum_required(VERSION 3.1.0)
-else()
-  cmake_minimum_required(VERSION 2.8.12)
-endif()
+cmake_minimum_required(VERSION 3.10.0)
 include(CMakeParseArguments)
 
 #------------------------------------------------------------------------------
@@ -351,7 +346,7 @@ function(lcm_wrap_types)
         if(DEFINED _CSHARP_SOURCES)
           if(_package_dir STREQUAL ".")
             _lcm_add_outputs(_CSHARP_SOURCES LCMTypes/${_type}.cs)
-          else()  
+          else()
             _lcm_add_outputs(_CSHARP_SOURCES ${_package_dir}/${_type}.cs)
           endif()
         endif()
@@ -405,7 +400,7 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.1)
       add_library(${NAME} ${_type} ${ARGN})
       add_dependencies(${NAME} ${NAME}.sources)
       target_link_libraries(${NAME}
-        PRIVATE ${LCM_NAMESPACE}lcm
+        PRIVATE ${LCM_NAMESPACE}lcm-static
         PUBLIC ${LCM_NAMESPACE}lcm-coretypes)
 
     # C++ library
