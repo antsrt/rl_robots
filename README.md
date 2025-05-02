@@ -6,11 +6,10 @@ Repository for training and deploying reinforcement learning algorithms on quadr
 ---
 
 ## PREREQUISITES
-- ROS Melodic/Noetic installed
-- Docker & Docker Compose
+- Docker
 - NVIDIA CUDA Toolkit (for GPU support)
-- OptiTrack Motive software v2.1+
-- Unitree Go1 robot with SDK access
+- OptiTrack Motion Capture system
+- Unitree AlienGo robot with SDK access
 
 ---
 
