@@ -1,57 +1,134 @@
-# rl_robots
 
-After cloning the repository:
+# RL Robots: Reinforcement Learning for Quadrupedal Robots
+
+Repository for training and deploying reinforcement learning algorithms on quadrupedal robots (currently supports Unitree Go1). Features Docker-based setup, OptiTrack integration, and data collection pipelines.
+
+---
+
+## PREREQUISITES
+- ROS Melodic/Noetic installed
+- Docker & Docker Compose
+- NVIDIA CUDA Toolkit (for GPU support)
+- OptiTrack Motive software v2.1+
+- Unitree Go1 robot with SDK access
+
+---
+
+## QUICK START GUIDE
+
+### 1. Clone Repository with Submodules
 ```bash
-git submodule update --init --recursive
+git clone -b ssrl_optitrack --recursive https://github.com/antsrt/rl_robots.git
+cd rl_robots
 ```
 
-# Build docker
-Inside dir ```rl_robots/docker``` run
+### 2. Build Docker Image
 ```bash
+cd docker
 ./build_docker.sh
 ```
-# Start Docker
-Inside dir: ```docker```
 
+### 3. Launch Container
 ```bash
 ./run_container.sh
 ```
 
-# After docker started init env
+### 4. Initialize Environment
 ```bash
 source /ssrl_entry.sh
 ```
-It automatically build all packages, create ROS env, build and source it.
+> This automatically handles ROS workspace setup and package builds
 
-# SSRL Start to collect data
-In separate terminals:
+---
+
+## OPTITRACK SETUP (MOTION CAPTURE)
+
+### Configuration in Motive:
+1. Calibrate capture volume
+2. Create Rigid Body with Trackable ID = 1
+3. Configure Data Streaming:
+   - Broadcast Frame Data: Enabled
+   - Local Interface: Loopback
+   - Up Axis: Z-Up
+   - Transmission Type: Multicast
+
+---
+
+## SYSTEM ACTIVATION
+
+### Terminal 1: Core Services
 ```bash
 roscore
 ```
+
+### Terminal 2: Robot Communication
 ```bash
 roslaunch ssrl_ros_go1 quadruped_comm.launch
 ```
+
+### Terminal 3: Support Nodes
 ```bash
 roslaunch ssrl_ros_go1 support_nodes_vicon.launch
 ```
+
+### Terminal 4: Motion Capture
+```bash
+roslaunch mocap_optitrack mocap.launch
+```
+
+### Terminal 5: Velocity Estimation
+```bash
+rosrun mocap_optitrack vel_estimator_optitrack.py
+```
+
+### Terminal 6: Controller
 ```bash
 rosrun ssrl_ros_go1 controller.py
 ```
-- Generate data
-    - Press the spacebar to start standing up the Aliengo;
-    - When the Aliengo is standing, press the spacebar again to start walking;
-    - The episode will terminiate automatically after 10 sec or if the robot falls;
-    - To stop the episode early, press any key.
-- Train
-    - Run the following command in terminal to run training: `python ssrl_hardware/ssrl_ros_go1/scripts/train.py run_name=<RUN_NAME>`
-        - Replace `<RUN_NAME>` with a descriptive name of the run. The name must not contain spaces or special characters except underscore.
-- Repeat for the desired number of epochs.
+> Select option 2 in rosrun menu
 
+---
 
-# Potential problems
+## DATA COLLECTION CONTROLS
 
-An error `liblcm.so.1: cannot open shared object file: No such file or directory` may occur after you run the command `roslaunch ssrl_ros_go1 support_nodes_vicon.launch`
-To solve this problem run this command:
+| Key       | Action                      |
+|-----------|-----------------------------|
+| Space     | Start standing/walking      |
+| Any key   | Emergency stop              |
+
+> Episodes auto-terminate after 10s or on fall detection
+
+---
+
+## TRAINING PIPELINE
+
+```bash
+python ssrl_hardware/ssrl_ros_go1/scripts/train.py run_name=<RUN_NAME>
+```
+---
+
+## TROUBLESHOOTING
+
+### Missing LCM Library
+**Error:** `liblcm.so.1: cannot open shared object file`
 ```bash
 sudo ldconfig -v
 ```
+
+### Motive Connection Issues
+Check configuration at `rl_robots/mocap_files/mocap.yaml`:
+- multicast_address
+- command_port
+- data_port
+
+> Ensure these match Motive's streaming settings
+
+---
+
+## PROJECT STRUCTURE
+```
+rl_robots/
+├── docker/               # Container configuration
+├── ssrl_ros_go1/         # Robot control stack
+├── mocap_optitrack/      # Motion capture integration
+└── ssrl_hardware/        # RL training scripts
