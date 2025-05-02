@@ -1,9 +1,5 @@
 
-# RL Robots: Reinforcement Learning for Quadrupedal Robots
-
-Repository for training and deploying reinforcement learning algorithms on quadrupedal robots (currently supports Unitree Go1). Features Docker-based setup, OptiTrack integration, and data collection pipelines.
-
----
+# RL Robots
 
 ## PREREQUISITES
 - Docker
