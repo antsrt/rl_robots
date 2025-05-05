@@ -72,6 +72,8 @@ roslaunch mocap_optitrack mocap.launch
 ```
 
 ### Terminal 5: Velocity Estimation
+**REBOOT THIS NODE BEFORE EVERY DATA COLLECTION!!!**
+
 ```bash
 rosrun mocap_optitrack vel_estimator_optitrack.py
 ```
