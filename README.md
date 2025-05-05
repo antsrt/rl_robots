@@ -43,7 +43,7 @@ source /ssrl_entry.sh
 2. Create Rigid Body with Trackable ID = 1
 3. Configure Data Streaming:
    - Broadcast Frame Data: Enabled
-   - Local Interface: Loopback
+   - Local Interface: Not loopback (some ip-adress)
    - Up Axis: Z-Up
    - Transmission Type: Multicast
 

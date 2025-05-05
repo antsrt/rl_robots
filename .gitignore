@@ -162,4 +162,4 @@ cython_debug/
 #.idea/
 
 # SSRL Data files
-*/ssrl_ros_go1/data/
+ssrl_aliengo_ws/src/ssrl_ros_go1/data/*
