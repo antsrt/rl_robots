@@ -23,5 +23,5 @@ if [ -z "$container_id" ]; then
         bash -c "source /opt/ros/noetic/setup.bash && source /workspace/ssrl_aliengo_ws/devel/setup.bash && bash"
 else
     # Execute command in the already running container
-    docker exec -it $container_id bash -c "source /opt/ros/noetic/setup.bash && source /workspace/ssrl_aliengo_ws/devel/setup.bash && bash"
+    docker exec -it $container_id bash -c "source /opt/ros/noetic/setup.bash && bash"
 fi
