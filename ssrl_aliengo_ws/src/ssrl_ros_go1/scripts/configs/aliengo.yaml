@@ -24,13 +24,13 @@ actor_network:
 
 env_common: # use with normalized reward structure; testing new weights
   policy_repeat: 4
-  forward_vel_rew_weight: 2.0
+  forward_vel_rew_weight: 2.5 # 2.0
   turn_rew_weight: 0.5
-  pitch_rew_weight: 0.25
-  roll_rew_weight: 0.25
+  pitch_rew_weight: 0.3 # 0.25
+  roll_rew_weight: 0.3 # 0.25
   yaw_rew_weight: 0.5  # set to zero if using a non-zero turn_cmd_rate_range
   side_motion_rew_weight: 0.5
-  z_vel_change_rew_weight: 0.15
+  z_vel_change_rew_weight: 0.2
   ang_vel_rew_weight: 0.0
   ang_change_rew_weight: 0.25
   joint_lim_rew_weight: 0.0
@@ -38,9 +38,9 @@ env_common: # use with normalized reward structure; testing new weights
   joint_acc_rew_weight: 0.0
   action_rew_weight: 0.0
   cosmetic_rew_weight: 0.0
-  energy_rew_weight: 0.25
+  energy_rew_weight: 0.3 # 0.25
   foot_z_rew_weight: 0.00
-  torque_lim_penalty_weight: 0.1
+  torque_lim_penalty_weight: 0.2 # 0.1
   fallen_roll: 0.785
   fallen_pitch: 0.785
   include_height_in_obs: False
@@ -115,23 +115,23 @@ reset_model: False
 ssrl:
   episode_length: 1000
   policy_repeat: 1  # we are repeating the policy within the env instead
-  num_epochs: 30
+  num_epochs: 40
   model_trains_per_epoch: 1
   training_steps_per_model_train: 1
   env_steps_per_training_step: 1000 # 1000
   model_rollouts_per_hallucination_update: 400
-  sac_grad_updates_per_hallucination_update: 40
+  sac_grad_updates_per_hallucination_update: 60 # 40
   init_exploration_steps: 1000 # 1000
   clear_model_buffer_after_model_train: False
   action_repeat: ${common.action_repeat}
   obs_history_length: ${common.obs_history_length}
   num_envs: 1
-  num_evals: 31
+  num_evals: 41 # 31
   num_eval_envs: 1
   policy_normalize_observations: ${common.normalize_observations}
   model_learning_rate: 1e-3
   model_training_batch_size: 200
-  model_training_max_sgd_steps_per_epoch: 20
+  model_training_max_sgd_steps_per_epoch: null # 20
   model_training_max_epochs: 1000
   model_training_convergence_criteria: 0.01
   model_training_consec_converged_epochs: 6
@@ -150,7 +150,7 @@ ssrl:
   sac_reward_scaling: 1.0
   sac_tau: 0.001
   sac_fixed_alpha: null
-  seed: 0
+  seed: 2 # 0
   deterministic_in_env: True
   deterministic_eval: True
   hallucination_max_std: -1.0
