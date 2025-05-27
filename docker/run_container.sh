@@ -20,7 +20,7 @@ if [ -z "$container_id" ]; then
         -v /tmp/.X11-unix:/tmp/.X11-unix \
         --privileged \
         ssrl-ros-gpu \
-        bash -c "source /opt/ros/noetic/setup.bash && source /workspace/ssrl_aliengo_ws/devel/setup.bash && bash"
+        bash -c "source /opt/ros/noetic/setup.bash && bash"
 else
     # Execute command in the already running container
     docker exec -it $container_id bash -c "source /opt/ros/noetic/setup.bash && bash"
