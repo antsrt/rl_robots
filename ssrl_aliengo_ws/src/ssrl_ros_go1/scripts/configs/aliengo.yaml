@@ -11,7 +11,7 @@ render_epoch_interval: 5
 render_seed: 0
 
 common:
-  action_repeat: 1
+  action_repeat: 4
   obs_history_length: 5
   normalize_observations: False # whether to use Brax's running normalizer 
   forces_in_q_coords: True
@@ -23,8 +23,8 @@ actor_network:
   max_std: null
 
 critic_network:
-  hidden_layers: 5
-  hidden_size: 256
+  hidden_layers: 2
+  hidden_size: 512
 
 env_common: # use with normalized reward structure; testing new weights
   policy_repeat: 4
@@ -120,7 +120,7 @@ reset_model: False
 ssrl:
   episode_length: 1000
   policy_repeat: 1  # we are repeating the policy within the env instead
-  num_epochs: 30
+  num_epochs: 18
   model_trains_per_epoch: 1
   training_steps_per_model_train: 1
   env_steps_per_training_step: 1000 # 1000
@@ -148,7 +148,7 @@ ssrl:
   model_check_done_condition: True
   max_env_buffer_size: 30000
   max_model_buffer_size: 400000
-  sac_learning_rate: 0.0002
+  sac_learning_rate: 0.002
   sac_discounting: 0.99
   sac_batch_size: 256
   real_ratio: 0.06
