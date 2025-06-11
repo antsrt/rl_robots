@@ -42,8 +42,8 @@ class Controller:
         self.p_stand_end = AliengoUtils.standing_foot_positions()
         self.p_stand_end += jp.tile(jp.array([0, 0, 0.05]), 4)
         self.p_stand_start = self.p_stand_end + jp.tile(jp.array([0, 0, 0.22]), 4)
-        self.standing_up_time = 1.0
-        self.lp_alpha = 0.45
+        self.standing_up_time = 5.0
+        self.lp_alpha = 0.1
 
         # Инициализация окружения
         rospy.init_node('controller')

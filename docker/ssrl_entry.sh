@@ -2,6 +2,12 @@
 
 cd /workspace
 pip install -e submodules/ssrl/ssrl
+pip install --ignore-installed PyYAML
+pip install rospkg
+pip install defusedxml
+pip install netifaces
+pip install qpsolvers
+pip install keyboard
 
 cd /workspace/submodules
 cp -a unitree_ros_to_real/ ../ssrl_aliengo_ws/src/

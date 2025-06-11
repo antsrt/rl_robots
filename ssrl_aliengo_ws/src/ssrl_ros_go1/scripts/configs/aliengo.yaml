@@ -28,23 +28,23 @@ critic_network:
 
 env_common: # use with normalized reward structure; testing new weights
   policy_repeat: 4
-  forward_vel_rew_weight: 2.0
-  turn_rew_weight: 0.5
-  pitch_rew_weight: 0.25
-  roll_rew_weight: 0.25
-  yaw_rew_weight: 0.5  # set to zero if using a non-zero turn_cmd_rate_range
-  side_motion_rew_weight: 0.5
-  z_vel_change_rew_weight: 0.15
+  forward_vel_rew_weight: 0.42
+  turn_rew_weight: 0.11
+  pitch_rew_weight: 0.05
+  roll_rew_weight: 0.05
+  yaw_rew_weight: 0.11  # set to zero if using a non-zero turn_cmd_rate_range
+  side_motion_rew_weight: 0.11
+  z_vel_change_rew_weight: 0.03
   ang_vel_rew_weight: 0.0
-  ang_change_rew_weight: 0.25
+  ang_change_rew_weight: 0.03
   joint_lim_rew_weight: 0.0
   torque_lim_rew_weight: 0.0
   joint_acc_rew_weight: 0.0
   action_rew_weight: 0.0
   cosmetic_rew_weight: 0.0
-  energy_rew_weight: 0.25
+  energy_rew_weight: 0.05
   foot_z_rew_weight: 0.00
-  torque_lim_penalty_weight: 0.1
+  torque_lim_penalty_weight: 0.02
   fallen_roll: 0.785
   fallen_pitch: 0.785
   include_height_in_obs: False
