@@ -6,26 +6,6 @@
 
 using namespace UNITREE_LEGGED_SDK;
 
-unitree_legged_msgs::LowState low_state_ros;
-
-void lowStateCallback(const unitree_legged_msgs::LowState::ConstPtr &state)
-{
-    static long count = 0;
-    ROS_INFO("lowStateCallback %ld", count++);
-
-    low_state_ros = *state;
-}
-
-double jointLinearInterpolation(double initPos, double targetPos, double rate)
-{
-    double p;
-    rate = std::min(std::max(rate, 0.0), 1.0);
-    p = initPos * (1 - rate) + targetPos * rate;
-    return p;
-}
-
-
-
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "example_postition_without_lcm");
@@ -38,28 +18,27 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::Rate loop_rate(500);
 
+    long motiontime = 0;
+    int rate_count = 0;
+    int sin_count = 0;
     float qInit[3] = {0};
     float qDes[3] = {0};
     float sin_mid_q[3] = {0.0, 1.2, -2.0};
     float Kp[3] = {0};
     float Kd[3] = {0};
-    double time_consume = 0;
-    int rate_count = 0;
-    int sin_count = 0;
-    int motiontime = 0;
-    float dt = 0.002;
 
     unitree_legged_msgs::LowCmd low_cmd_ros;
 
-    // bool initiated_flag = false; // initiate need time
-    // int count = 0;
+    bool initiated_flag = false; // initiate need time
+    int count = 0;
 
     ros::Publisher pub = nh.advertise<unitree_legged_msgs::LowCmd>("low_cmd", 1);
-    ros::Subscriber sub = nh.subscribe("low_state", 1, lowStateCallback);
 
+    low_cmd_ros.head[0] = 0xFE;
+    low_cmd_ros.head[1] = 0xEF;
     low_cmd_ros.levelFlag = LOWLEVEL;
 
-    for (std::size_t i = 0; i < 20; ++i)
+    for (int i = 0; i < 12; i++)
     {
         low_cmd_ros.motorCmd[i].mode = 0x0A;  // motor switch to servo (PMSM) mode
         low_cmd_ros.motorCmd[i].q = PosStopF; // 禁止位置环
@@ -72,80 +51,37 @@ int main(int argc, char **argv)
     while (ros::ok())
     {
 
-        printf("FR_joint_pos: %f %f %f\n", low_state_ros.motorState[FR_0].q, low_state_ros.motorState[FR_1].q, low_state_ros.motorState[FR_2].q);
-
-        
-        motiontime += 2;
-
-        low_cmd_ros.motorCmd[FR_0].tau = -1.6f;
-   
-        if (motiontime >= 0)
+        if (initiated_flag == true)
         {
-        // first, get record initial position
-        // if( motiontime >= 100 && motiontime < 500){
-            if (motiontime >= 0 && motiontime < 10)
-            {
-                qInit[0] = low_state_ros.motorState[FR_0].q;
-                qInit[1] = low_state_ros.motorState[FR_1].q;
-                qInit[2] = low_state_ros.motorState[FR_2].q;
-            }
-            // second, move to the origin point of a sine movement with Kp Kd
-            // if( motiontime >= 500 && motiontime < 1500){
-            if (motiontime >= 10 && motiontime < 400)
-            {
-                rate_count++;
-                double rate = rate_count / 200.0; // needs count to 200
-            // Kp[0] = 5.0; Kp[1] = 5.0; Kp[2] = 5.0;
-            // Kd[0] = 1.0; Kd[1] = 1.0; Kd[2] = 1.0;
-                Kp[0] = 20.0;
-                Kp[1] = 20.0;
-                Kp[2] = 20.0;
-                Kd[0] = 2.0;
-                Kd[1] = 2.0;
-                Kd[2] = 2.0;
+            motiontime += 2;
 
-                qDes[0] = jointLinearInterpolation(qInit[0], sin_mid_q[0], rate);
-                qDes[1] = jointLinearInterpolation(qInit[1], sin_mid_q[1], rate);
-                qDes[2] = jointLinearInterpolation(qInit[2], sin_mid_q[2], rate);
-            }
-            double sin_joint1, sin_joint2;
-        // last, do sine wave
-            float freq_Hz = 1;
-        // float freq_Hz = 5;
-            float freq_rad = freq_Hz * 2 * M_PI;
-            float t = dt * sin_count;
-            if (motiontime >= 400)
-            {
-                sin_count++;
-            // sin_joint1 = 0.6 * sin(3*M_PI*sin_count/1000.0);
-            // sin_joint2 = -0.9 * sin(3*M_PI*sin_count/1000.0);
-                sin_joint1 = 0.6 * sin(t * freq_rad);
-                sin_joint2 = -0.9 * sin(t * freq_rad);
-                qDes[0] = sin_mid_q[0];
-                qDes[1] = sin_mid_q[1] + sin_joint1;
-                qDes[2] = sin_mid_q[2] + sin_joint2;
-            // qDes[2] = sin_mid_q[2];
-            }
+            low_cmd_ros.motorCmd[FR_0].tau = -0.65f;
+            low_cmd_ros.motorCmd[FL_0].tau = +0.65f;
+            low_cmd_ros.motorCmd[RR_0].tau = -0.65f;
+            low_cmd_ros.motorCmd[RL_0].tau = +0.65f;
 
-            low_cmd_ros.motorCmd[FR_0].q = qDes[0];
-            low_cmd_ros.motorCmd[FR_0].dq = 0;
-            low_cmd_ros.motorCmd[FR_0].Kp = Kp[0];
-            low_cmd_ros.motorCmd[FR_0].Kd = Kd[0];
-            low_cmd_ros.motorCmd[FR_0].tau = -1.6f;
+            low_cmd_ros.motorCmd[FR_2].q = -M_PI / 2 + 0.5 * sin(2 * M_PI / 5.0 * motiontime * 1e-3);
+            low_cmd_ros.motorCmd[FR_2].dq = 0.0;
+            low_cmd_ros.motorCmd[FR_2].Kp = 5.0;
+            low_cmd_ros.motorCmd[FR_2].Kd = 1.0;
 
-            low_cmd_ros.motorCmd[FR_1].q = qDes[1];
-            low_cmd_ros.motorCmd[FR_1].dq = 0;
-            low_cmd_ros.motorCmd[FR_1].Kp = Kp[1];
-            low_cmd_ros.motorCmd[FR_1].Kd = Kd[1];
-            low_cmd_ros.motorCmd[FR_1].tau = 0.0f;
+            low_cmd_ros.motorCmd[FR_0].q = 0.0;
+            low_cmd_ros.motorCmd[FR_0].dq = 0.0;
+            low_cmd_ros.motorCmd[FR_0].Kp = 5.0;
+            low_cmd_ros.motorCmd[FR_0].Kd = 1.0;
 
-            low_cmd_ros.motorCmd[FR_2].q = qDes[2];
-            low_cmd_ros.motorCmd[FR_2].dq = 0;
-            low_cmd_ros.motorCmd[FR_2].Kp = Kp[2];
-            low_cmd_ros.motorCmd[FR_2].Kd = Kd[2];
-            low_cmd_ros.motorCmd[FR_2].tau = 0.0f;
+            low_cmd_ros.motorCmd[FR_1].q = 0.0;
+            low_cmd_ros.motorCmd[FR_1].dq = 0.0;
+            low_cmd_ros.motorCmd[FR_1].Kp = 5.0;
+            low_cmd_ros.motorCmd[FR_1].Kd = 1.0;
         }
-        
+
+        count++;
+        if (count > 10)
+        {
+            count = 10;
+            initiated_flag = true;
+        }
 
         pub.publish(low_cmd_ros);
 

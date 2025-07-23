@@ -11,7 +11,7 @@ if [ -z "$container_id" ]; then
         -it \
         --name ssrl-ros-gpu \
         --ipc=host \
-        --gpus all \
+        --gpus "device=0" \
         --net=host \
         -v "$(pwd)/..:/workspace" \
         --volume="$HOME/.Xauthority:/root/.Xauthority:rw" \

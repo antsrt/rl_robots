@@ -94,7 +94,7 @@ class Observer:
         t = self.step_count / self.rate
         phase = 2*jp.pi*t/self.env._period
 
-        if self.cfg.env == 'AliengoGoFast':
+        if self.cfg.env == 'Go1GoFast':
             msg.observation[self.env._quat_idxs] = self.low_state.imu.quaternion
         
         msg.observation[self.env._q_idxs] = q

@@ -41,7 +41,7 @@ class WandbState:
     steps: int
 
 
-@hydra.main(config_path="configs", config_name="aliengo")
+@hydra.main(config_path="configs", config_name="go1")
 def train(cfg: DictConfig):
     from jax import config
     config.update("jax_enable_x64", True)
