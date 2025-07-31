@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from brax.envs.aliengo_go_fast import AliengoGoFast
-from brax.robots.aliengo import networks as aliengo_networks
+from brax.envs.go1_go_fast import Go1GoFast
+from brax.robots.go1 import networks as go1_networks
 from brax.training.acme import running_statistics
 from brax.training.agents.ssrl import train as ssrl
 from brax.training.agents.ssrl import base as ssrl_base
@@ -19,11 +19,14 @@ from omegaconf import DictConfig, OmegaConf
 import functools as ft
 from pathlib import Path
 import dill
-import wandb
 import jax
 import flax
 import optax
 from jax import numpy as jp
+import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter  # Добавлен TensorBoard
+import numpy as np
+
 data_path = (Path(os.path.abspath(__file__)).parent.parent / 'data')
 
 
@@ -36,8 +39,7 @@ class ssrlData:
 
 
 @flax.struct.dataclass
-class WandbState:
-    id: str
+class StepsState:
     steps: int
 
 
@@ -48,34 +50,35 @@ def train(cfg: DictConfig):
     if 'CUDA_VISIBLE_DEVICES' not in os.environ:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpus)
 
-    # initialize training and load rollout data
-    ms, env_unwrapped, epoch, rollout_path, steps, warm_start = init_training(cfg)
+    # Инициализация TensorBoard
+    log_dir = data_path / cfg.run_name / "tensorboard"
+    writer = SummaryWriter(log_dir=str(log_dir))
 
-    # Update model horizon
+    # Инициализация обучения
+    ms, env_unwrapped, epoch, rollout_path, steps, warm_start = init_training(cfg, writer)
+
+    # Обновление горизонта модели
     ms = ssrl.update_model_horizon(ms, epoch)
 
-    # add rollout to buffers
-    ms, rollout_metrics = load_rollout(ms, cfg, env_unwrapped, epoch,
-                                       rollout_path)
+    # Загрузка данных rollout
+    ms, rollout_metrics = load_rollout(ms, cfg, env_unwrapped, epoch, rollout_path, writer, steps)
     steps += rollout_metrics['rollout_steps']
     print(rollout_metrics)
 
-    # train
-    print("Starting training with the following parameters:")
-    ssrl_params = OmegaConf.to_container(cfg.ssrl, resolve=True,
-                                           throw_on_missing=True)
+    # Обучение
+    print("Начало обучения со следующими параметрами:")
+    ssrl_params = OmegaConf.to_container(cfg.ssrl, resolve=True, throw_on_missing=True)
     print(ssrl_params)
-    print("Training...")
+    print("Обучение...")
 
-    # starting training epoch
+    # Обучение модели
     model_train_time = 0
     other_time = 0
 
-    # train model
+    # Обучение модели
     new_key, model_key = jax.random.split(ms.local_key)
     ms = ms.replace(local_key=new_key)
     start_time = time.time()
-    # just do one epoch of model training if loading model params from another run
     c = ms.constants.replace(model_training_max_epochs=1) if warm_start else ms.constants
     training_state, model_metrics = ssrl.train_model(
         ms.training_state, ms.env_buffer_state, ms.env_buffer,
@@ -87,7 +90,7 @@ def train(cfg: DictConfig):
         bs = rb.init(ms.sac_state.buffer_state.key)
         ms = ms.replace(sac_state=ms.sac_state.replace(buffer_state=bs))
 
-    # hallucination and policy update
+    # Обновление политики
     start_time = time.time()
     update_key, new_local_key = jax.random.split(ms.local_key)
     ms = ms.replace(local_key=new_local_key)
@@ -122,7 +125,16 @@ def train(cfg: DictConfig):
     }
     print(metrics)
 
-    # save states
+    # Логирование метрик в TensorBoard
+    for key, value in metrics.items():
+        # Преобразуем JAX-массивы к numpy, а numpy к float
+        if hasattr(value, "item"):
+            value = value.item()
+        elif isinstance(value, np.ndarray):
+            value = float(value)
+        writer.add_scalar(key, value, global_step=steps)
+
+    # Сохранение состояний
     sac_ts_path = (rollout_path / 'sac_ts.pkl')
     with open(sac_ts_path, 'wb') as f:
         dill.dump(sac_training_state, f)
@@ -139,73 +151,57 @@ def train(cfg: DictConfig):
     with open(ssrl_data_path, 'wb') as f:
         dill.dump(ssrl_data, f)
 
-    if cfg.wandb.log_ssrl:
-        wandb.log(metrics)
-        wand_path = (rollout_path / 'wandb_state.pkl')
-        wandb_state = WandbState(id=wandb.run.id, steps=steps)
-        with open(wand_path, 'wb') as f:
-            dill.dump(wandb_state, f)
+    # Сохранение состояния шагов
+    steps_path = (rollout_path / 'steps_state.pkl')
+    steps_state = StepsState(steps=steps)
+    with open(steps_path, 'wb') as f:
+        dill.dump(steps_state, f)
+
+    # Закрытие TensorBoard
+    writer.close()
 
 
-def init_training(cfg: DictConfig) -> Tuple[ssrl_base.MbpoState, RlwamEnv,
-                                            int, Path]:
-    rollout_num = max(
-        [int(folder) for folder in os.listdir(data_path / cfg.run_name)])
-    print(f'Loading rollout {rollout_num}')
+def init_training(cfg: DictConfig, writer: SummaryWriter) -> Tuple[ssrl_base.MbpoState, RlwamEnv, int, Path, int, bool]:
+    rollout_folders = [folder for folder in os.listdir(data_path / cfg.run_name) if folder.isdigit()]
+    if not rollout_folders:
+        rollout_num = 0
+    else:
+        rollout_num = max(int(folder) for folder in rollout_folders)
+    print(f'Загрузка rollout {rollout_num}')
     rollout_path = (data_path / cfg.run_name / f"{rollout_num:02d}")
 
-    # load last sac training state
-    sac_ts_path = (data_path / cfg.run_name
-                   / f"{rollout_num-1:02d}" / "sac_ts.pkl")
+    # Загрузка состояния шагов
+    steps = 0
+    if rollout_num > 0:
+        prev_rollout_path = (data_path / cfg.run_name / f"{rollout_num-1:02d}")
+        steps_path = prev_rollout_path / "steps_state.pkl"
+        if os.path.exists(steps_path):
+            with open(steps_path, 'rb') as f:
+                steps_state = dill.load(f)
+                steps = steps_state.steps
+
+    # Загрузка состояния SAC
+    sac_ts_path = (data_path / cfg.run_name / f"{rollout_num-1:02d}" / "sac_ts.pkl")
     if os.path.exists(sac_ts_path):
         with open(sac_ts_path, 'rb') as f:
             sac_ts = dill.load(f)
     else:
         sac_ts = None
 
-    # load last ssrl training state
-    ssrl_data_path = (data_path / cfg.run_name
-                        / f"{rollout_num-1:02d}" / "ssrl_data.pkl")
+    # Загрузка состояния SSRL
+    ssrl_data_path = (data_path / cfg.run_name / f"{rollout_num-1:02d}" / "ssrl_data.pkl")
     if os.path.exists(ssrl_data_path):
         with open(ssrl_data_path, 'rb') as f:
             ssrl_data = dill.load(f)
     else:
         ssrl_data = None
 
-    # check for pre-trained model
+    # Проверка предобученной модели
     warm_start_ssrl_data = None
-    warm_start_ssrl_data_path = (data_path / cfg.run_name / "00"
-                                   / "ssrl_data.pkl")
+    warm_start_ssrl_data_path = (data_path / cfg.run_name / "00" / "ssrl_data.pkl")
     if rollout_num == 0 and os.path.exists(warm_start_ssrl_data_path):
         with open(warm_start_ssrl_data_path, 'rb') as f:
             warm_start_ssrl_data = dill.load(f)
-
-    # load last wandb state
-    steps = 0
-    if cfg.wandb.log_ssrl:
-        wandb_path = (data_path / cfg.run_name
-                      / f"{rollout_num-1:02d}" / "wandb_state.pkl")
-        if os.path.exists(wandb_path):
-            with open(wandb_path, 'rb') as f:
-                wandb_state = dill.load(f)
-                run_id = wandb_state.id
-                steps = wandb_state.steps
-                wandb.init(project='go1_ssrl_hardware',
-                           entity=cfg.wandb.entity,
-                           id=run_id,
-                           resume='must')
-        else:
-            config_dict = OmegaConf.to_container(cfg, resolve=True,
-                                                 throw_on_missing=True)
-            wandb.init(project='go1_ssrl_hardware',
-                       entity=cfg.wandb.entity,
-                       name=cfg.run_name,
-                       config=config_dict,
-                       id=None,
-                       resume=None)
-            wandb_state = WandbState(id=wandb.run.id, steps=steps)
-            with open(rollout_path / "wandb_state.pkl", 'wb') as f:
-                dill.dump(wandb_state, f)
 
     env_kwargs = cfg.env_ssrl
     env_fn = ft.partial(env_dict[cfg.env], backend='generalized')
@@ -214,7 +210,7 @@ def init_training(cfg: DictConfig) -> Tuple[ssrl_base.MbpoState, RlwamEnv,
 
     dynamics_fn = env.make_ssrl_dynamics_fn(cfg.ssrl_dynamics_fn)
     (sac_network_factory,
-        model_network_factory) = aliengo_networks.ssrl_network_factories(cfg)
+        model_network_factory) = go1_networks.ssrl_network_factories(cfg)
 
     if cfg.reset_critic and sac_ts is not None:
         q_optimizer = optax.adam(learning_rate=cfg.ssrl.sac_learning_rate)
@@ -317,14 +313,15 @@ def init_training(cfg: DictConfig) -> Tuple[ssrl_base.MbpoState, RlwamEnv,
 
 
 def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
-                 env: AliengoGoFast, rollout_num: int, rollout_path: Path):
+                 env: Go1GoFast, rollout_num: int, rollout_path: Path,
+                 writer: SummaryWriter, current_steps: int):
     obs_size = env.observation_size
     hist_len = cfg.common.obs_history_length
     act_repeat = cfg.common.action_repeat
     act_size = env.action_size
     q_size = env.sys.act_size()
     u_size = env.controls_size
-    is_straight_task = cfg.env == 'AliengoGoFast'
+    is_straight_task = cfg.env == 'Go1GoFast'
 
     bag_paths = []
     pattern = re.compile(r'subrollout_\d+\.bag')
@@ -333,7 +330,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
             bag_paths.append(rollout_path / file)
     bag_paths = sorted(bag_paths)
 
-    # for rollout metrics
+    # Для метрик rollout
     ep_lens = jp.array([])
     forward_vels = jp.array([])
     first_avg_forward_vel = -jp.inf
@@ -345,7 +342,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         delta_yaw = jp.array([])
     all_reward_components = []
 
-    # for plotting
+    # Для построения графиков
     all_ts_plot = None
     all_obses_plot = jp.zeros((0, obs_size))
     all_q_deses_plot = jp.zeros((0, q_size))
@@ -353,7 +350,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
     all_theo_torques_plot = jp.zeros((0, q_size))
     all_theo_energy_plot = jp.zeros((0, 1))
 
-    # for training
+    # Для обучения
     all_norm_obses_stack = jp.zeros((0, obs_size*hist_len))
     all_actions = jp.zeros((0, act_size))
     all_us = jp.zeros((0, u_size))
@@ -362,9 +359,8 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
     all_dones = jp.zeros((0,))
 
     for i, bag_path in enumerate(bag_paths):
-
-        # load data from rosbag
-        print('Loading data')
+        # Загрузка данных из rosbag
+        print('Загрузка данных')
         ts, obses, qs, qds, q_deses, qd_deses, Kps, Kds, actions = read_bag(
             bag_path,
             q_idxs=env._q_idxs,
@@ -372,8 +368,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         )
         norm_obses = [env._normalize_obs(obs) for obs in obses]
 
-        # append to arrays for plotting (all data is plotted: nothing is
-        # truncated)
+        # Формирование данных для графиков
         if all_ts_plot is None:
             all_ts_plot = jp.array(ts)
         else:
@@ -389,7 +384,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         theo_energy = jp.expand_dims(jp.sum(jp.abs(theo_torques * jp.array(qds)), axis=-1), axis=-1)
         all_theo_energy_plot = jp.concatenate([all_theo_energy_plot, theo_energy], axis=0)
 
-        # add to data for rollout metrics
+        # Добавление данных для метрик rollout
         obses = jp.array(obses)
         ep_lens = jp.concatenate([ep_lens, jp.array([obses.shape[0]])])
         forward_vels = jp.concatenate([forward_vels, obses[:, env._forward_vel_idx]])
@@ -402,8 +397,8 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
             delta_radii = jp.concatenate([delta_radii, obses[:, env._delta_radius_idx]])
             delta_yaw = jp.concatenate([delta_yaw, obses[:, env._delta_yaw_idx]])
 
-        # create stacked observations
-        print('Creating stacked obs')
+        # Создание стеков наблюдений
+        print('Создание стеков наблюдений')
         norm_obses_stack = []
         norm_obses_stack.append(jp.zeros((obs_size*hist_len,)))
         norm_obses_stack[0] = norm_obses_stack[0].at[:obs_size].set(norm_obses[0])
@@ -416,10 +411,10 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
             ))
         norm_obses_stack = jp.array(norm_obses_stack)
 
-        # us are simply the scaled actions
+        # Масштабирование действий
         us = env.scale_action(jp.array(actions))
 
-        print('Calculating rewards')
+        print('Вычисление наград')
         rewards = []
         rew_fn = jax.jit(env.compute_reward)
         for i in range(len(norm_obses_stack)):
@@ -432,25 +427,25 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
             rewards.append(reward)
             all_reward_components.append(reward_components)
 
-        # truncate where the obs stack is not full
+        # Обрезка неполных стеков
         trunc = ((hist_len // act_repeat)) * act_repeat
         norm_obses_stack = norm_obses_stack[trunc:]
         actions = actions[trunc:]
         us = us[trunc:]
         rewards = rewards[trunc:]
 
-        # truncate to make divisible by action repeat
+        # Обрезка для кратности action_repeat
         steps = len(norm_obses_stack) // act_repeat * act_repeat
         norm_obses_stack = jp.array(norm_obses_stack[:steps])
         actions = jp.array(actions[:steps])
         us = jp.array(us[:steps])
         rewards = jp.array(rewards[:steps])
 
-        # create dones (set last step to done)
+        # Создание флагов завершения
         dones = jp.zeros_like(rewards)
         dones = dones.at[-1].set(1)
 
-        # append to arrays
+        # Объединение данных
         all_norm_obses_stack = jp.concatenate([all_norm_obses_stack, norm_obses_stack], axis=0)
         all_actions = jp.concatenate([all_actions, actions], axis=0)
         all_us = jp.concatenate([all_us, us], axis=0)
@@ -460,11 +455,11 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
              jp.expand_dims(jp.sum(rewards), axis=0)], axis=0)
         all_dones = jp.concatenate([all_dones, dones], axis=0)
 
-    # the next obs are simply the obses rolled back one step
+    # Следующие наблюдения - сдвинутые стеки
     all_next_obs_stack = jp.roll(all_norm_obses_stack, shift=-1, axis=0)
 
-    # build transitions
-    print('Building transitions')
+    # Построение переходов
+    print('Построение переходов')
     zeros = jp.zeros_like(all_rewards)
     truncation = zeros
     info = {'truncation': truncation}
@@ -479,7 +474,7 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         next_observation=all_next_obs_stack,
         extras=extras)
 
-    # add transitions to buffer
+    # Добавление переходов в буфер
     env_buffer_state = ms.env_buffer.insert(ms.env_buffer_state, transitions)
     model_buffer_state = ms.sac_state.replay_buffer.insert(
         ms.sac_state.buffer_state, transitions)
@@ -487,12 +482,12 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         env_buffer_state=env_buffer_state,
         sac_state=ms.sac_state.replace(buffer_state=model_buffer_state))
 
-    # calculate rollout metrics
+    # Расчет метрик rollout
     rollout_steps = all_rewards.shape[0]
     total_rewards = jp.sum(all_rewards)
     avg_reward_per_step = total_rewards / rollout_steps
-    print(f'Rollout steps: {rollout_steps}')
-    print(f'Total reward / rollout steps: {total_rewards / rollout_steps}')
+    print(f'Шаги rollout: {rollout_steps}')
+    print(f'Общая награда / шаги rollout: {total_rewards / rollout_steps}')
 
     all_reward_components = jax.tree_util.tree_map(
         lambda *x: jp.stack(x),
@@ -519,20 +514,22 @@ def load_rollout(ms: ssrl_base.MbpoState, cfg: DictConfig,
         rollout_metrics['stats/avg_delta_radius'] = jp.mean(delta_radii)
         rollout_metrics['stats/avg_delta_yaw'] = jp.mean(delta_yaw)
 
-    # generate plots TODO
-    if cfg.wandb.log_ssrl:
-        plot_rollout(cfg, env, all_ts_plot,
-                     obses=all_obses_plot, qs=None, qds=None, q_deses=all_q_deses_plot,
-                     qd_deses=None, Kps=None, Kds=None, actions=all_actions_plot,
-                     theo_torques=all_theo_torques_plot,
-                     theo_energy=all_theo_energy_plot,
-                     rollout_num=rollout_num, init_wandb=False)
+    # Генерация графиков для TensorBoard
+    if cfg.tensorboard.log_images:
+        fig = plot_rollout(cfg, env, all_ts_plot,
+                           obses=all_obses_plot, qs=None, qds=None, q_deses=all_q_deses_plot,
+                           qd_deses=None, Kps=None, Kds=None, actions=all_actions_plot,
+                           theo_torques=all_theo_torques_plot,
+                           theo_energy=all_theo_energy_plot,
+                           rollout_num=rollout_num, return_fig=True)
+        writer.add_figure('rollout/plot', fig, global_step=current_steps)
+        plt.close(fig)
 
     return ms, rollout_metrics
 
 
 def add_kwargs_to_fn(partial_fn, **kwargs):
-    """add the kwargs to the passed in partial function"""
+    """Добавляет kwargs к частичной функции"""
     for param in kwargs:
         partial_fn.keywords[param] = kwargs[param]
     return partial_fn

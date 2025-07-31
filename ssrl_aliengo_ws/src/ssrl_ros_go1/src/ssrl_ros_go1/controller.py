@@ -19,17 +19,18 @@ from jax import numpy as jp
 import numpy as np
 import rospy
 import rosbag
-import keyboard  # Используем библиотеку keyboard
+from pynput import keyboard
 import threading
 import math
 import re
 import os
 
+
 class Controller:
     def __init__(self, cfg: DictConfig, data_path: Path):
         assert cfg.run_name is not None
 
-        # Параметры
+        # parameters
         self.obs_history_length = cfg.common.obs_history_length
         self.action_repeat = 1
         self.use_policy = True
@@ -43,9 +44,9 @@ class Controller:
         self.p_stand_end += jp.tile(jp.array([0, 0, 0.05]), 4)
         self.p_stand_start = self.p_stand_end + jp.tile(jp.array([0, 0, 0.22]), 4)
         self.standing_up_time = 5.0
-        self.lp_alpha = 1.0
+        self.lp_alpha = 0.12
 
-        # Инициализация окружения
+        # environment
         rospy.init_node('controller')
         rospy.loginfo(f"Building {cfg.env} environment...")
         self.env = env_dict[cfg.env](
@@ -57,12 +58,12 @@ class Controller:
         self.obs_msg = Observation()
         self.action = jp.zeros(self.env.action_size)
         self.action_msg = Action()
-        self.norm_obs_stack = jp.zeros(self.obs_size * self.obs_history_length)
+        self.norm_obs_stack = jp.zeros(self.obs_size*self.obs_history_length)
         self.control = jax.jit(self.env.low_level_control_hardware)
         self.normalize_obs = jax.jit(self.env._normalize_obs)
         self.scale_action = jax.jit(self.env.scale_action)
-
-        # Переменные класса
+        
+        # Class vars
         self.data_path = data_path
         self.bag = None
         self.subrollout_count = 0
@@ -75,11 +76,11 @@ class Controller:
         self.ik = jax.jit(Go1Utils.inverse_kinematics_all_legs)
         self.last_cmd = Cmd(jp.zeros(12,), jp.zeros(12,),
                             jp.zeros(12,), jp.zeros(12,),
-                            jp.array([True] * 4), jp.array([0.0] * 4),
+                            jp.array([True]*4), jp.array([0.0]*4),
                             jp.zeros(12,))
         self.is_done = jax.jit(self.env.is_done)
-
-        # Предварительная компиляция функций
+        
+        # precompile jitted functions
         quat = jp.array([1, 0, 0, 0])
         yaw_from_quat(quat)
         quat_from_start_yaw(quat, 0.0)
@@ -88,18 +89,18 @@ class Controller:
         self.is_done(self.obs)
 
         if os.path.exists(self.data_path / cfg.run_name):
-            # Продолжение существующего запуска
+            # continue a run
             self.rollout_count = max(
                 [int(folder) for folder in os.listdir(
                     self.data_path / cfg.run_name)]) + 1
             sac_ts_path = (self.data_path / cfg.run_name
-                           / f"{self.rollout_count - 1:02d}" / "sac_ts.pkl")
+                           / f"{self.rollout_count-1:02d}" / "sac_ts.pkl")
             params, make_policy, _ = go1_networks.make_sac_networks(
                 cfg, self.env, saved_policies_dir=None,
                 sac_ts_path=sac_ts_path)
             self.max_rollout_steps = cfg.ssrl.env_steps_per_training_step
         else:
-            # Новый запуск
+            # start a new run
             if self.save_data:
                 os.makedirs(self.data_path / cfg.run_name)
             self.rollout_count = 0
@@ -124,26 +125,26 @@ class Controller:
         self.key = jax.random.PRNGKey(cfg.ssrl.seed)
         self.scaled_action = jp.zeros(self.env.action_size)
 
-        # Первичный запуск управления для компиляции
+        # run control once to compile
         self.qped_state = 'walk'
         self.do_control(publish=False)
         self.qped_state = 'off'
 
-        # Сообщения pd_target
+        # pd_target messages
         self.off_pd_target = PdTarget()
         self.off_pd_target.mode = 0x00
-        self.off_pd_target.q_des[:12] = [math.pow(10, 9)] * 12
+        self.off_pd_target.q_des[:12] = [math.pow(10,9)] * 12
         self.off_pd_target.qd_des[:12] = [16000.0] * 12
         self.off_pd_target.Kp[:12] = [0] * 12
         self.off_pd_target.Kd[:12] = [0] * 12
         self.pd_target = PdTarget()
         self.pd_target.mode = 0x0A
-        self.pd_target.q_des[:12] = [math.pow(10, 9)] * 12
+        self.pd_target.q_des[:12] = [math.pow(10,9)] * 12
         self.pd_target.qd_des[:12] = [16000.0] * 12
         self.pd_target.Kp[:12] = [0] * 12
         self.pd_target.Kd[:12] = [0] * 12
 
-        # Подписчики и публикаторы
+        # subscribers and publishers
         self.obs_sub = rospy.Subscriber('observation', Observation,
                                         self.obs_callback,
                                         tcp_nodelay=True)
@@ -151,9 +152,9 @@ class Controller:
                                              queue_size=100)
         self.gait_pub = rospy.Publisher("gait", Gait, queue_size=100)
         self.qped_state_pub = rospy.Publisher("quadruped_state", QuadrupedState,
-                                              queue_size=10)
+                                               queue_size=10)
 
-        # Слушатель клавиатуры
+        # keyboard listener
         self.listener_thread = threading.Thread(target=self.start_keyboard_listener)
         self.listener_thread.start()
 
@@ -161,18 +162,19 @@ class Controller:
         self.obs = jp.array(observation.observation)
 
     def do_control(self, publish=True):
-        # Создаем копию для предотвращения мутации из обратного вызова
+        # create a copy to prevent mutation from the callback
         self.obs_copy = jp.copy(self.obs)
 
-        # Поворот кватерниона относительно начального yaw (только для прямой задачи)
+        # rotate the quaternion to be relative to the start yaw (straight task
+        # only)
         if self.is_straight_task:
             new_quat = quat_from_start_yaw(self.obs_copy[self.env._quat_idxs],
-                                           self.start_yaw)
+                                        self.start_yaw)
             self.obs_copy = self.obs_copy.at[self.env._quat_idxs].set(new_quat)
 
         norm_obs = self.normalize_obs(self.obs_copy)
         self.norm_obs_stack = jp.concatenate(
-            [norm_obs, self.norm_obs_stack[:self.obs_size * (self.obs_history_length - 1)]],
+            [norm_obs, self.norm_obs_stack[:self.obs_size*(self.obs_history_length-1)]],
             axis=-1
         )
         if self.qped_state != 'off':
@@ -191,7 +193,7 @@ class Controller:
                 self.step_count += 1
                 self.rollout_step_count += 1
             elif self.qped_state == 'standing_up':
-                x = self.standing_up_count / (self.standing_up_time / self.dt)
+                x = self.standing_up_count/ (self.standing_up_time / self.dt)
                 Kp = self.interpolate(self.Kp_stand_start, self.Kp_stand_end, x)
                 Kd = self.interpolate(self.Kd_stand_start, self.Kd_stand_end, x)
                 p_des = self.interpolate(self.p_stand_start, self.p_stand_end, x)
@@ -200,8 +202,8 @@ class Controller:
                                 jp.tile(Go1Utils.LOWER_JOINT_LIMITS, 4),
                                 jp.tile(Go1Utils.UPPER_JOINT_LIMITS, 4))
                 qd_des = jp.zeros((12,))
-                contact = jp.array([True] * 4)
-                leg_phases = jp.array([0.0] * 4)
+                contact = jp.array([True]*4)
+                leg_phases = jp.array([0.0]*4)
                 if self.standing_up_count >= self.standing_up_time / self.dt:
                     self.qped_state = 'stand'
                     self.publish_quadruped_state()
@@ -218,8 +220,8 @@ class Controller:
                 qd_des = jp.zeros((12,))
                 Kp = self.Kp_stand_end
                 Kd = self.Kd_stand_end
-                contact = jp.array([True] * 4)
-                leg_phases = jp.array([0.0] * 4)
+                contact = jp.array([True]*4)
+                leg_phases = jp.array([0.0]*4)
                 self.last_cmd = Cmd(q_des, qd_des, Kp, Kd, contact, leg_phases,
                                     jp.zeros(12,))
             if publish:
@@ -233,26 +235,41 @@ class Controller:
                 self.publish_offcmd()
 
     def interpolate(self, start: jp.ndarray, end: jp.ndarray, xs: jp.ndarray):
-        """Интерполяция между двумя значениями, где xs находится между 0 и 1."""
+        """Interpolate between two values where xs are between 0
+        and 1."""
         xs = jp.clip(xs, 0, 1)
         ys = start + (end - start) * xs
         return ys
 
     def publish_pd_target(self, q_des: jp.ndarray, qd_des: jp.ndarray,
-                          Kp: jp.ndarray, Kd: jp.ndarray):
-        q_des = self.lp_alpha * q_des + (1 - self.lp_alpha) * self.last_cmd.q_des
-        qd_des = self.lp_alpha * qd_des + (1 - self.lp_alpha) * self.last_cmd.qd_des
-        Kp = self.lp_alpha * Kp + (1 - self.lp_alpha) * self.last_cmd.Kp
-        Kd = self.lp_alpha * Kd + (1 - self.lp_alpha) * self.last_cmd.Kd
-
-        self.pd_target.q_des[:12] = np.array(q_des)
-        self.pd_target.qd_des[:12] = np.array(qd_des)
-        self.pd_target.Kp[:12] = np.array(Kp)
-        self.pd_target.Kd[:12] = np.array(Kd)
+                    Kp: jp.ndarray, Kd: jp.ndarray):
+        # Для состояния standing_up не применяем фильтрацию
+        if self.qped_state == 'standing_up':
+            filtered_q_des = q_des
+            filtered_qd_des = qd_des
+            filtered_Kp = Kp
+            filtered_Kd = Kd
+        # Для состояния stand применяем умеренную фильтрацию
+        elif self.qped_state == 'stand':
+            alpha = 1.0  # Можно настроить под конкретную задачу
+            filtered_q_des = alpha*q_des + (1-alpha)*self.last_cmd.q_des
+            filtered_qd_des = alpha*qd_des + (1-alpha)*self.last_cmd.qd_des
+            filtered_Kp = alpha*Kp + (1-alpha)*self.last_cmd.Kp
+            filtered_Kd = alpha*Kd + (1-alpha)*self.last_cmd.Kd
+        # Для состояния walk применяем текущую фильтрацию
+        else:
+            filtered_q_des = self.lp_alpha*q_des + (1-self.lp_alpha)*self.last_cmd.q_des
+            filtered_qd_des = self.lp_alpha*qd_des + (1-self.lp_alpha)*self.last_cmd.qd_des
+            filtered_Kp = self.lp_alpha*Kp + (1-self.lp_alpha)*self.last_cmd.Kp
+            filtered_Kd = self.lp_alpha*Kd + (1-self.lp_alpha)*self.last_cmd.Kd
+        
+        self.pd_target.q_des[:12] = np.array(filtered_q_des)
+        self.pd_target.qd_des[:12] = np.array(filtered_qd_des)
+        self.pd_target.Kp[:12] = np.array(filtered_Kp)
+        self.pd_target.Kd[:12] = np.array(filtered_Kd)
         self.pd_target_pub.publish(self.pd_target)
-
-        self.last_cmd = Cmd(q_des, qd_des, Kp, Kd,
-                            jp.array([True] * 4), jp.array([0.0] * 4),
+        self.last_cmd = Cmd(filtered_q_des, filtered_qd_des, filtered_Kp, filtered_Kd,
+                            jp.array([True]*4), jp.array([0.0]*4),
                             jp.zeros(12,))
 
     def publish_gait(self, contact: jp.ndarray, leg_phases: jp.ndarray):
@@ -270,10 +287,11 @@ class Controller:
         self.qped_state_pub.publish(msg)
 
     def start_keyboard_listener(self):
-        keyboard.on_press(self.on_press)  # Используем keyboard.on_press
+        with keyboard.Listener(on_press=self.on_press) as self.listener:
+            self.listener.join()
 
-    def on_press(self, event):
-        if event.name == 'space':  # Проверяем нажатие пробела через event.name
+    def on_press(self, key):
+        if key == keyboard.Key.space:
             if self.qped_state == "walk":
                 self.qped_state = "stand"
                 self.close_bag()
@@ -282,11 +300,23 @@ class Controller:
                 rospy.loginfo("Quadruped is standing up...")
                 self.standing_up_count = 0
                 self.qped_state = "standing_up"
+                # Сброс last_cmd к текущим позициям робота
+                current_joint_pos = self.obs_copy[self.env._q_idxs]
+                self.last_cmd = Cmd(
+                    current_joint_pos,
+                    jp.zeros(12,),
+                    self.Kp_stand_start,
+                    self.Kd_stand_start,
+                    jp.array([True]*4),
+                    jp.array([0.0]*4),
+                    jp.zeros(12,)
+                )
             elif self.qped_state == "stand":
                 rospy.loginfo("Quadruped is walking. Press space to stand or any key to turn off.")
                 self.step_count = 0
                 if self.is_straight_task:
                     self.start_yaw = yaw_from_quat(self.obs[self.env._quat_idxs])
+                # Don't count steps when the obs hist is still filling up
                 self.max_rollout_steps += self.obs_history_length + 1
                 self.open_bag()
                 self.qped_state = "walk"
@@ -300,7 +330,7 @@ class Controller:
         if (not self.is_done(norm_obs)
                 and self.rollout_step_count < self.max_rollout_steps):
             return
-
+        
         self.publish_offcmd()
         self.qped_state = "off"
         self.close_bag()
@@ -315,15 +345,15 @@ class Controller:
     def open_bag(self):
         if not self.save_data:
             return
-
-        # Удаляем старые подзапуски, если это первый подзапуск
+        
+        # delete old subrollouts if this is the first subrollout
         if self.subrollout_count == 0:
             pattern = re.compile(r'subrollout_\d+\.bag')
             for file in os.listdir(self.rollout_path):
                 if pattern.match(file):
                     os.remove(os.path.join(self.rollout_path, file))
 
-        # Открываем новый bag-файл
+        # open new bag
         bag_name = 'subrollout_{:0>2}.bag'.format(self.subrollout_count)
         self.bag = rosbag.Bag(os.path.join(self.rollout_path, bag_name), 'w')
 
@@ -344,7 +374,7 @@ class Controller:
 
     def run(self):
         rospy.loginfo("Starting controller")
-        rate = rospy.Rate(1 / self.env.dt)
+        rate = rospy.Rate(1/self.env.dt)
         rospy.loginfo("Quadruped is off. Press space to start standing up.")
         self.publish_quadruped_state()
 
@@ -356,16 +386,20 @@ class Controller:
         self.do_control()
         self.close_bag()
         print("Shutdown detected, press any key to exit.")
+        self.listener.stop()
+        self.listener_thread.join()
+
 
 @jax.jit
 def yaw_from_quat(quat: jp.ndarray):
     r, p, y = quat_to_eulerzyx(quat)
     return y
 
+
 @jax.jit
 def quat_from_start_yaw(abs_quat: jp.ndarray, start_yaw: float):
     r, p, abs_yaw = quat_to_eulerzyx(abs_quat)
     rel_yaw = abs_yaw - start_yaw
-    rel_yaw = jp.arctan2(jp.sin(rel_yaw), jp.cos(rel_yaw))  # Ограничение до [-pi, pi]
+    rel_yaw = jp.arctan2(jp.sin(rel_yaw), jp.cos(rel_yaw)) # wrap to [-pi, pi]
     new_rpy_deg = jp.array([r, p, rel_yaw]) * 180 / jp.pi
     return eulerzyx_to_quat(new_rpy_deg)

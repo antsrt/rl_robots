@@ -3,7 +3,7 @@
 sweep_name:
 env: Go1GoFast
 algo: ssrl
-gpus: '0'
+gpus: '1'
 num_seeds: 1
 ssrl_dynamics_fn: contact_integrate_only
 render_during_training: True
@@ -50,8 +50,8 @@ env_common: # use with normalized reward structure; testing new weights
 env_ssrl:
   policy_repeat: ${env_common.policy_repeat}
   forward_cmd_vel_type: constant
-  forward_cmd_vel_range: [0.0, 2.0] 
-  forward_cmd_vel_period_range: [5.0, 10.0]
+  forward_cmd_vel_range: [0.3, 0.3]
+  forward_cmd_vel_period_range: [40.0, 40.0]
   turn_cmd_rate_range: [-0.0, 0.0]
   initial_yaw_range: [-0.0, 0.0]
   contact_time_const: 0.02
@@ -101,13 +101,16 @@ ssrl_model:
 wandb:
   entity: an-tsaritsin-itmo-university
   log_ssrl: True
+  
+tensorboard:
+  log_images: False
 
 save_policy:
   ssrl: True
   ssrl_all: True
 
 
-run_name: run_name_1ms
+run_name: walk_go1_alpha0_newPD
 reset_critic: False
 reset_actor: False
 reset_model: False
@@ -115,13 +118,13 @@ reset_model: False
 ssrl:
   episode_length: 1000
   policy_repeat: 1  # we are repeating the policy within the env instead
-  num_epochs: 30
+  num_epochs: 18
   model_trains_per_epoch: 1
   training_steps_per_model_train: 1
-  env_steps_per_training_step: 1000
+  env_steps_per_training_step: 1000 # 1000
   model_rollouts_per_hallucination_update: 400
   sac_grad_updates_per_hallucination_update: 40
-  init_exploration_steps: 1000
+  init_exploration_steps: 1000 # 1000
   clear_model_buffer_after_model_train: False
   action_repeat: ${common.action_repeat}
   obs_history_length: ${common.obs_history_length}
@@ -143,13 +146,13 @@ ssrl:
   model_check_done_condition: True
   max_env_buffer_size: 30000
   max_model_buffer_size: 400000
-  sac_learning_rate: 0.0002
+  sac_learning_rate: 0.002
   sac_discounting: 0.99
   sac_batch_size: 256
   real_ratio: 0.06
   sac_reward_scaling: 1.0
   sac_tau: 0.001
-  sac_fixed_alpha: null
+  sac_fixed_alpha: 0.2
   seed: 0
   deterministic_in_env: True
   deterministic_eval: True
